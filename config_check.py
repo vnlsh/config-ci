@@ -13,5 +13,15 @@ def check():
     
     print("Конфигурация корректна: все ключи на месте")
 
+def get_public_config(data):
+    """Возвращает конфигурацию для вывода в API (без секретов)"""
+    public_config = {
+        "host": data.get("host"),
+        "port": data.get("port"),
+        "log_level": data.get("log_level")
+    }
+    # ВАЖНО: здесь мы намеренно НЕ добавляем "secret"
+    return public_config
+
 if __name__ == "__main__":
     check()
