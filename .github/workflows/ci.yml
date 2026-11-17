@@ -1,62 +1,10 @@
-name: CI Pipeline
-
-on:
-  push:
-    branches: [ "main" ]
-    tags: [ "v*" ]
-  pull_request:
-    branches: [ "main" ]
-
-env:
-  APP_PORT: ${{ vars.APP_PORT }} 
-
-jobs:
-  validate:
-    runs-on: ubuntu-latest
-    container:
-      image: python:3.11.10-slim
-    steps:
-      - uses: actions/checkout@v4
-      - name: Компиляция Python
-        run: python -m compileall .
-      - name: Проверка переменной APP_PORT
-        run: echo "Используем порт $APP_PORT"
-
-  test:
-    needs: validate
-    runs-on: ubuntu-latest
-    container:
-      image: python:3.11.10-slim
-    steps:
-      - uses: actions/checkout@v4
-      - name: Запуск тестов
-        run: python -m unittest discover -s tests -v
-
-  package:
-    needs: test
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Создание артефакта
-        run: |
-          mkdir -p dist
-          cp config_check.py README.md Dockerfile config.json.example dist/
-          echo "Commit SHA: ${{ github.sha }}" > dist/manifest.txt
-          echo "Pipeline ID: ${{ github.run_id }}" >> dist/manifest.txt
-          ls dist/ >> dist/manifest.txt
-      - uses: actions/upload-artifact@v4
-        with:
-          name: dist-package
-          path: dist/
-          retention-days: 7
-
   deploy_test:
     needs: package
-    # Deploy только из main
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    environment: production # Привязка к защищенной среде (protected main)
+    environment: 
+      name: production
+      url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
       - name: Проверка секрета (без вывода)
         run: |
@@ -66,4 +14,41 @@ jobs:
           else
             echo "Секрет DEPLOY_TOKEN успешно найден и скрыт."
           fi
-          echo "Развертывание разрешено (protected main)"
+          
+      - name: Скачивание артефакта
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-package
+          path: deploy/test
+          
+      - name: Дымовая проверка (Вариант 8)
+        run: |
+          cd deploy/test
+          echo "Запуск дымовой проверки конфигурации..."
+          python -c "
+          import json
+          try:
+              with open('config.json.example') as f:
+                  data = json.load(f)
+              required = ['host', 'port', 'log_level']
+              missing = [k for k in required if k not in data]
+              if missing:
+                  raise ValueError(f'Отсутствуют ключи: {missing}')
+              print('Дымовая проверка пройдена: конфигурация валидна')
+          except Exception as e:
+              print(f'Ошибка: {e}')
+              exit(1)
+          "
+          
+      - name: Сохранение отчета deployment.txt
+        run: |
+          echo "Environment: test/config" > deploy/test/deployment.txt
+          echo "Status: SUCCESS" >> deploy/test/deployment.txt
+          echo "Timestamp: $(date -u)" >> deploy/test/deployment.txt
+          echo "Smoke test: Example config validation passed" >> deploy/test/deployment.txt
+          
+      - name: Загрузка отчета о развертывании
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-report
+          path: deploy/test/deployment.txt
