@@ -25,7 +25,7 @@ jobs:
 
       - name: Проверка обязательных ключей конфигурации
         run: |
-          python check_config.py
+          python config_check.py
 
   test:
     needs: validate
