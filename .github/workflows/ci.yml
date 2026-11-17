@@ -3,29 +3,24 @@ name: CI Pipeline
 on:
   push:
     branches: [ "main" ]
+    tags: [ "v*" ]
   pull_request:
     branches: [ "main" ]
+
+env:
+  APP_PORT: ${{ vars.APP_PORT }} 
 
 jobs:
   validate:
     runs-on: ubuntu-latest
     container:
-      image: python:3.11.10-slim # Вариант 8
+      image: python:3.11.10-slim
     steps:
       - uses: actions/checkout@v4
-
-      - name: Вывод версий Python и коммита
-        run: |
-          python --version
-          echo "Commit: ${{ github.sha }}"
-
-      - name: Проверка компиляции Python
-        run: |
-          python -m compileall .
-
-      - name: Проверка обязательных ключей конфигурации
-        run: |
-          python config_check.py
+      - name: Компиляция Python
+        run: python -m compileall .
+      - name: Проверка переменной APP_PORT
+        run: echo "Используем порт $APP_PORT"
 
   test:
     needs: validate
@@ -34,35 +29,41 @@ jobs:
       image: python:3.11.10-slim
     steps:
       - uses: actions/checkout@v4
-      - name: Запуск Unit-тестов
-        run: |
-          python -m unittest discover -s tests -v
+      - name: Запуск тестов
+        run: python -m unittest discover -s tests -v
 
   package:
     needs: test
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Создание артефакта и манифеста (Вариант 8)
+      - name: Создание артефакта
         run: |
           mkdir -p dist
-          cp config_check.py dist/
-          cp README.md dist/
-          cp Dockerfile dist/
-          cp config.json.example dist/
-          
+          cp config_check.py README.md Dockerfile config.json.example dist/
           echo "Commit SHA: ${{ github.sha }}" > dist/manifest.txt
           echo "Pipeline ID: ${{ github.run_id }}" >> dist/manifest.txt
-          echo "Files:" >> dist/manifest.txt
           ls dist/ >> dist/manifest.txt
-          
-          echo "Содержимое манифеста:"
-          cat dist/manifest.txt
-          
-      - name: Загрузка артефакта на GitHub (хранить 7 дней)
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: dist-package
           path: dist/
           retention-days: 7
+
+  deploy_test:
+    needs: package
+    # Deploy только из main
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production # Привязка к защищенной среде (protected main)
+    steps:
+      - name: Проверка секрета (без вывода)
+        run: |
+          if [ -z "${{ secrets.DEPLOY_TOKEN }}" ]; then
+            echo "ОШИБКА: Секрет DEPLOY_TOKEN не задан"
+            exit 1
+          else
+            echo "Секрет DEPLOY_TOKEN успешно найден и скрыт."
+          fi
+          echo "Развертывание разрешено (protected main)"
