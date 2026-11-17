@@ -1,0 +1,48 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.11.10-slim # Вариант 8
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Вывод версий Python и коммита
+        run: |
+          python --version
+          echo "Commit: ${{ github.sha }}"
+
+      - name: Проверка компиляции Python
+        run: |
+          python -m compileall .
+
+      - name: Проверка обязательных ключей конфигурации
+        run: |
+          python check_config.py
+
+  test:
+    needs: validate
+    runs-on: ubuntu-latest
+    container:
+      image: python:3.11.10-slim
+    steps:
+      - uses: actions/checkout@v4
+      - name: Запуск тестов
+        run: |
+          echo "Тесты будут добавлены в Задании 2"
+
+  package:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Создание артефакта
+        run: |
+          echo "Артефакт будет добавлен в Задании 3"
