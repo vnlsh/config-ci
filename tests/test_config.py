@@ -46,15 +46,13 @@ class TestConfig(unittest.TestCase):
         errors = validate_config(data)
         self.assertTrue(len(errors) >= 2)
 
-    def test_secret_is_not_exposed(self):
+        def test_secret_is_not_exposed(self):
         data = {
             "host": "localhost", 
             "port": 8080, 
             "log_level": "INFO", 
-            "timeout": 30, 
-            "retries": 3,
             "secret": "super_secret_password"
         }
         public_data = get_public_config(data)
-        
         self.assertNotIn("secret", public_data, "ОШИБКА: Секрет попал в вывод конфигурации!")
+

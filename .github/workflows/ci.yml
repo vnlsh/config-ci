@@ -34,9 +34,9 @@ jobs:
       image: python:3.11.10-slim
     steps:
       - uses: actions/checkout@v4
-      - name: Запуск тестов
+      - name: Запуск Unit-тестов
         run: |
-          echo "Тесты будут добавлены в Задании 2"
+          python -m unittest discover -s tests -v
 
   package:
     needs: test
