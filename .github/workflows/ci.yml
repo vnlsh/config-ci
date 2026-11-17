@@ -43,6 +43,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Создание артефакта
+      
+      - name: Создание артефакта и манифеста (Вариант 8)
         run: |
-          echo "Артефакт будет добавлен в Задании 3"
+          mkdir -p dist
+          cp config_check.py dist/
+          cp README.md dist/
+          cp Dockerfile dist/
+          cp config.json.example dist/
+          
+          echo "Commit SHA: ${{ github.sha }}" > dist/manifest.txt
+          echo "Pipeline ID: ${{ github.run_id }}" >> dist/manifest.txt
+          echo "Files:" >> dist/manifest.txt
+          ls dist/ >> dist/manifest.txt
+          
+          echo "Содержимое манифеста:"
+          cat dist/manifest.txt
+          
+      - name: Загрузка артефакта на GitHub (хранить 7 дней)
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-package
+          path: dist/
+          retention-days: 7
