@@ -19,10 +19,6 @@ def get_public_config(data):
         "port": data.get("port"),
         "log_level": data.get("log_level")
     }
-    # НАМЕРЕННАЯ ОШИБКА: добавляем секрет в вывод
-    if "secret" in data:
-        public_config["secret"] = data["secret"] 
-        
     return public_config
 if __name__ == "__main__":
     check()
